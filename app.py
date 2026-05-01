@@ -1,75 +1,152 @@
 import streamlit as st
 import random
+import pandas as pd 
+from reportlab.pdfgen import canvas
+from io import BytesIO
+st.set_page_config(page_title="VoltGuard AI", layout="wide") 
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background: linear-gradient(to right, #f7f8fc, #eef2f7);
+        color: #1a1a1a;
+    }
 
-st.title("⚡ VoltGuard AI")
+    /* Metric cards styling */
+    div[data-testid="metric-container"] {
+        background-color: white;
+        border-radius: 12px;
+        padding: 15px;
+        box-shadow: 0px 4px 12px rgba(0,0,0,0.08);
+    }
 
+    /* Buttons styling */
+    .stButton>button {
+        background-color: #4CAF50;
+        color: white;
+        border-radius: 8px;
+        padding: 8px 16px;
+    }
+
+    .stButton>button:hover {
+        background-color: #45a049;
+    }
+
+    /* Subheader style */
+    h1, h2, h3 {
+        color: #1f3b57;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+
+if "data" not in st.session_state:
+    st.session_state.data = {
+        "time": [],
+        "voltage": [],
+        "current": [],
+        "temp": []
+    }
+
+st.title("⚡ VoltGuard AI - Smart Electrical Safety System")
+st.markdown("Real-Time Monitoring Dashboard for  Voltage, Current & Temperature")
+st.markdown("---")
 # SAFE RANGES DISPLAY
 st.subheader("📊 Safe Operating Ranges")
-st.markdown("""
-🔌 Voltage: 198V – 242V (Safe Range)  
-⚡ Current: 0A – 20A (Safe Range)  
-🌡️ Temperature: 0°C – 70°C (Safe Range)
-""")
+
+colA, colB, colC = st.columns(3)
+
+colA.info("🔌 Voltage: 198V – 242V")
+colB.info("⚡ Current: 0A – 20A")
+colC.info("🌡️ Temperature: 0°C – 70°C")
+
+st.markdown("---")
 
 # SIMULATED SENSOR VALUES
 voltage = random.randint(210, 260)
 current = random.randint(5, 25)
 temp = random.randint(30, 90)
 
+st.session_state.data["time"].append(len(st.session_state.data["time"]))
+st.session_state.data["voltage"].append(voltage)
+st.session_state.data["current"].append(current)
+st.session_state.data["temp"].append(temp)
+
 st.subheader("📡 Live Electrical Data")
 
-st.write(f"Voltage: {voltage} V")
-st.write(f"Current: {current} A")
-st.write(f"Temperature: {temp} °C")
+c1, c2, c3 = st.columns(3)
+
+c1.metric("Voltage", f"{voltage} V")
+c2.metric("Current", f"{current} A")
+c3.metric("Temperature", f"{temp} °C")
+
+st.markdown("---")
+st.subheader("📈 Live System Trends")
+
+df = pd.DataFrame(st.session_state.data)
+
+st.line_chart(df.set_index("time")[["voltage", "current", "temp"]])
+st.markdown("---")
+
+st.subheader("📄 System Report")
+if st.button("Generate Report"):
+
+    pdf_buffer = BytesIO()
+
+    pdf = canvas.Canvas(pdf_buffer)
+
+    pdf.setFont("Helvetica-Bold", 16)
+    pdf.drawString(180, 800, "VoltGuard AI Report")
+
+    pdf.setFont("Helvetica", 12)
+    pdf.drawString(50, 750, f"Total Samples: {len(df)}")
+    pdf.drawString(50, 720, f"Average Voltage: {df['voltage'].mean():.2f} V")
+    pdf.drawString(50, 690, f"Average Current: {df['current'].mean():.2f} A")
+    pdf.drawString(50, 660, f"Average Temperature: {df['temp'].mean():.2f} °C")
+
+    pdf.drawString(50, 620, "System Report Generated Successfully")
+
+    pdf.save()
+
+    pdf_buffer.seek(0)
+
+    st.download_button(
+        "📄 Download PDF Report",
+        pdf_buffer,
+        "voltguard_report.pdf",
+        "application/pdf"
+    )
+
 
 # ANALYSIS BUTTON
 if st.button("Analyze System"):
 
     st.subheader("⚡ System Analysis Report")
 
-    # ---------------- VOLTAGE ----------------
     if voltage < 198 or voltage > 242:
         st.error("⚠️ Voltage Out of Safe Range!")
-        st.write("📌 Problem: Voltage instability detected.")
-        st.write("🧠 Reason: Supply voltage is not within standard industrial limits (198V–242V).")
-        st.write("🛠️ Action: Check stabilizer, transformer, or power supply line.")
+        st.write("Reason: Voltage instability detected due to supply fluctuation.")
+        st.write("Action: Check stabilizer or power source immediately.")
     else:
         st.success("✔️ Voltage is Normal")
-        st.write("📌 Problem: Voltage within safe range.")
-        st.write("🧠 Reason: Supply is stable and within limits.")
-        st.write("🛠️ Action: No action required.")
 
-    st.markdown("---")
-
-    # ---------------- CURRENT ----------------
     if current > 20:
         st.error("⚠️ Overcurrent Detected!")
-        st.write("📌 Problem: Electrical load is too high.")
-        st.write("🧠 Reason: Connected devices are drawing excessive current beyond 20A limit.")
-        st.write("🛠️ Action: Reduce load or disconnect extra devices.")
+        st.write("Reason: Electrical load exceeds safe threshold.")
+        st.write("Action: Reduce connected devices or load.")
     else:
         st.success("✔️ Current is Normal")
-        st.write("📌 Problem: Current is within safe range.")
-        st.write("🧠 Reason: Load demand is balanced.")
-        st.write("🛠️ Action: No action required.")
 
-    st.markdown("---")
-
-    # ---------------- TEMPERATURE ----------------
     if temp <= 70:
         st.success("🌡️ Temperature Normal")
-        st.write("📌 Problem: No overheating detected.")
-        st.write("🧠 Reason: Thermal condition is stable below 70°C.")
-        st.write("🛠️ Action: Continue normal operation.")
-
     elif temp <= 85:
         st.warning("🌡️ Temperature High (Warning Zone)")
-        st.write("📌 Problem: Device is heating up.")
-        st.write("🧠 Reason: Heat accumulation due to load or poor ventilation.")
-        st.write("🛠️ Action: Improve cooling or reduce load.")
-
+        st.write("Reason: Heat accumulation in system components.")
+        st.write("Action: Improve cooling or reduce load.")
     else:
         st.error("🌡️ Critical Overheating!")
-        st.write("📌 Problem: Dangerous temperature level.")
-        st.write("🧠 Reason: Thermal limit exceeded (>85°C). Risk of damage or failure.")
-        st.write("🛠️ Action: Immediate shutdown required.")
+        st.write("Reason: System overheating beyond safe limit.")
+        st.write("Action: Immediate shutdown required.")
+
